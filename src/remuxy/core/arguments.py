@@ -15,6 +15,9 @@ def parse_args(argv=None):
     ap.add_argument("-o", "--output", help="output file (default: <target>.synced.mkv)")
     ap.add_argument("--audio", type=int, default=0, help="audio track index in the SOURCE (0 = first)")
     ap.add_argument("--ref-audio", type=int, default=0, help="TARGET track used as reference by --auto-sync")
+    ap.add_argument("--sync-audio", type=int,
+                    help="SOURCE track measured by --auto-sync (default: --audio, or a source track in the "
+                         "target reference's language when --audio is in another one)")
     ap.add_argument("--offset", type=float, default=0.0,
                     help="manual fine adjustment in seconds (+ delays the new audio, - advances it)")
     ap.add_argument("--speed", type=float, help="forces the audio speed factor (e.g. 1.04271 = 23.976->25 fps)")
@@ -52,8 +55,8 @@ def parse_args(argv=None):
     args = ap.parse_args(argv)
 
     errors = []
-    if args.audio < 0 or args.ref_audio < 0:
-        errors.append("--audio/--ref-audio cannot be negative")
+    if args.audio < 0 or args.ref_audio < 0 or (args.sync_audio is not None and args.sync_audio < 0):
+        errors.append("--audio/--ref-audio/--sync-audio cannot be negative")
     if args.points < 3:
         errors.append("--points must be at least 3")
     if args.window <= 5 or args.search <= 0:

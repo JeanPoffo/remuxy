@@ -14,7 +14,9 @@ What it checks/fixes:
      audio: first a whole-movie correlation for each candidate speed (finds the delay with no search
      limit and confirms/corrects the speed), then windows spread over the movie that vote: only what
      the majority agrees on counts. So it works with dubs (different dialogue; music/effects match),
-     detects drift and warns about different cuts.
+     detects drift and warns about different cuts. When the source also carries the target reference's
+     language (a dubbed release that keeps the original track), that track is measured instead: same file,
+     same timeline, much stronger match (--sync-audio forces the choice).
   4. (--verify) after writing the file, measures the new audio against the target's original audio.
      Exits with code 2 if the error exceeds 40 ms.
 
@@ -54,6 +56,7 @@ from remuxy.core.media import Media
 from remuxy.core.mux_command import build_mux_command
 from remuxy.core.prior_model import prior_model
 from remuxy.core.process import run
+from remuxy.core.sync_track import pick_sync_track
 from remuxy.core.track import get_track
 from remuxy.core.verify import check_output, verify_sync
 
@@ -77,6 +80,8 @@ def main(argv=None):
     if args.auto_sync and args.ref_audio >= len(tgt.audios):
         sys.exit(f"The target has {len(tgt.audios)} audio track(s); there is no --ref-audio "
                  f"{args.ref_audio} reference for --auto-sync.")
+    if args.sync_audio is not None and args.sync_audio >= len(src.audios):
+        sys.exit(f"The source has {len(src.audios)} audio track(s); --sync-audio {args.sync_audio} does not exist.")
     sa = src.audios[args.audio]
     a_s = src.rel_start(sa)
     ch = int(sa.get("channels") or 2)
@@ -110,7 +115,10 @@ def main(argv=None):
         print(" -", n)
 
     if args.auto_sync:
-        S, T = get_track(src, args.audio), get_track(tgt, args.ref_audio)
+        sync_idx, note = pick_sync_track(src, tgt, args)
+        if note:
+            print(f"[auto-sync] {note}")
+        S, T = get_track(src, sync_idx), get_track(tgt, args.ref_audio)
         for name, tr in (("source", S), ("target", T)):
             if tr.no_center:
                 print(f"  {name}: comparing only the side channels (the center, with the dialogue, is left out)")

@@ -95,6 +95,7 @@ remux SOURCE TARGET [options]
 | `-o`, `--output` | `<target>.synced.mkv` | Output file. Always **Matroska**, so use `.mkv` (another extension triggers a warning). Cannot be an input file. |
 | `--audio N` | `0` | Audio track of the **source** (0 = first). |
 | `--ref-audio N` | `0` | Audio track of the **target** used as reference by `--auto-sync`/`--verify`. |
+| `--sync-audio N` | auto | Audio track of the **source** measured by `--auto-sync`. Default: `--audio`, or a source track in the reference's language when `--audio` is in another one (see below). |
 | `--append` | off | Puts the new track **after** the originals instead of first and default. |
 | `--replace` | off | Removes the target's original audio tracks. |
 | `--overwrite` | off | Overwrites the output if it exists. |
@@ -177,7 +178,7 @@ Candidates the durations cannot separate (e.g. 23.976 vs 24 fps, 0.1% apart) pri
 
 **Audio-only source.** The reference is the start of the audio itself. Raw formats without a time index (`.mp3`, `.mp2`, `.aac`, `.ac3`, `.eac3`, `.dts`, `.thd`...) may only have a bitrate **estimate** of their duration (a VBR MP3 without a Xing header showed 282.9 s for 303 s of audio), so they are decoded once to measure it exactly; `--auto-sync` reuses that decode.
 
-**2. Measurement (`--auto-sync`).** Both tracks are decoded once and reduced to two curves at 200 points/s: the **energy envelope** and the **attacks** (sudden volume rises). No words are compared, so it works with dubs, where only music and effects match. On 5.1/7.1 only the **side channels** are used (the center holds the dialogue), unless they are near silence (old movies with everything in the center).
+**2. Measurement (`--auto-sync`).** Both tracks are decoded once and reduced to two curves at 200 points/s: the **energy envelope** and the **attacks** (sudden volume rises). No words are compared, so it works with dubs, where only music and effects match. On 5.1/7.1 only the **side channels** are used (the center holds the dialogue), unless they are near silence (old movies with everything in the center). If the source also keeps the target's original language (a dubbed release with the original track), `--auto-sync` measures **that** track instead: all tracks of a file share one timeline, and like-with-like matches far better than a stereo dub, whose dialogue cannot be left out. The result is applied to `--audio`; `--sync-audio` forces the choice.
 1. **Whole movie, per candidate speed** (predicted, none, every 23.976/24/25 combination): the correlation peak gives the delay with **no search limit** and confirms or corrects the speed; the predicted one only loses to a clearly better one.
 2. **Windows:** `--points` windows spread over the overlap, around that delay.
 3. **Vote:** only what a group of windows agrees on counts (same delay within 60 ms, or the same line if there is drift): at least 3 windows and 40% of them, spanning windows that share no audio. False peaks land at random and do not agree.
