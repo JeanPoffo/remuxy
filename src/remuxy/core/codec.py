@@ -4,10 +4,14 @@ from remuxy.core.audio_filter import out_layout
 from remuxy.core.constants import AUTO_COPY, NO_COPY, SAME_CODEC
 from remuxy.core.probe import num
 
+# Copying without re-encoding shifts the packets: a positive delay leaves the start of the new track with
+# NO audio data at all (not silence). Some TVs stall or start without sound on such a gap.
+MAX_COPY_GAP = 0.5
 
-def resolve_codec(args, sa, b, ch):
-    """Decides how the new track (source audio stream `sa`, `ch` channels, speed factor `b`) is written.
-    Returns (codec, output sample rate or 0, source sample rate, output channels); codec "copy" = no re-encode."""
+
+def resolve_codec(args, sa, b, ch, delay=0.0):
+    """Decides how the new track (source audio stream `sa`, `ch` channels, speed factor `b`, first sample landing
+    at `delay` s on the output) is written. Returns (codec, output sample rate or 0, source sample rate, output channels); codec "copy" = no re-encode."""
     codec = args.codec
     src_codec = sa.get("codec_name")
     src_sr = int(num(sa.get("sample_rate"), 0))
@@ -24,6 +28,14 @@ def resolve_codec(args, sa, b, ch):
     if codec == "copy" and abs(b - 1) > 1e-9:
         codec = SAME_CODEC.get(src_codec, "ac3" if ch > 2 else "aac")
         print(f"WARNING: --codec copy is impossible with a speed adjustment ({1 / b:.5f}x); re-encoding to {codec}.")
+    if codec == "copy" and delay > MAX_COPY_GAP:
+        if args.codec == "auto":
+            codec = SAME_CODEC.get(src_codec, "ac3" if ch > 2 else "aac")
+            print(f"codec auto: the new audio starts {delay:.3f}s in; re-encoding to {codec} so that stretch is "
+                  "filled with silence (a copy would leave it with no audio data)")
+        else:
+            print(f"WARNING: with --codec copy the first {delay:.3f}s of the new track have no audio data; "
+                  "some TVs stall or start without sound. Prefer --codec auto.")
     sr = args.sample_rate
     if codec == "libopus":
         sr = 48000  # Opus only exists at 48 kHz (and submultiples)

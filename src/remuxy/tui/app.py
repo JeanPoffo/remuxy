@@ -128,6 +128,7 @@ class RemuxY(App):
 
                     yield Label("Measurement", classes="sec")
                     yield from self.opt("Ref. track", "ref_audio", "0  (target audio)", "integer")
+                    yield from self.opt("Sync track", "sync_audio", "auto  (source audio)", "integer")
                     yield from self.opt("Points", "points", "12", "integer")
                     yield from self.opt("Window (s)", "window", "120", "number")
                     yield from self.opt("Search ± (s)", "search", "30", "number")
@@ -268,7 +269,8 @@ class RemuxY(App):
                 args.append(flag)
         for wid, flag in (("offset", "--offset"), ("speed", "--speed"), ("bitrate", "--bitrate"),
                           ("sample_rate", "--sample-rate"), ("lang", "--lang"), ("title", "--title"),
-                          ("audio", "--audio"), ("ref_audio", "--ref-audio"), ("points", "--points"),
+                          ("audio", "--audio"), ("ref_audio", "--ref-audio"), ("sync_audio", "--sync-audio"),
+                          ("points", "--points"),
                           ("window", "--window"), ("search", "--search"), ("min_score", "--min-score")):
             if val(wid):
                 args += [flag, val(wid)]
