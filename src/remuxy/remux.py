@@ -132,7 +132,7 @@ def main(argv=None):
             print("  -> keeping the model computed from the metadata.")
 
     out_end = tgt.rel_start(tgt.video) + tgt.duration(tgt.video)
-    codec, sr, src_sr, ch_out = resolve_codec(args, sa, b, ch)
+    codec, sr, src_sr, ch_out = resolve_codec(args, sa, b, ch, delay=a + b * a_s)
     copy = codec == "copy"
     flt, delay = build_filter(a, b, a_s, ch, out_end, codec, sample_rate=sr or None, src_sr=src_sr,
                               stretch=args.stretch)
