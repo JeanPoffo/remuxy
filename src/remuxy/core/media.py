@@ -4,7 +4,7 @@ from fractions import Fraction
 from pathlib import Path
 
 from remuxy.core.constants import SLOW_SEEK, STD_FPS
-from remuxy.core.probe import num, probe, tag_duration
+from remuxy.core.probe import first_pts, num, probe, tag_duration
 
 
 class Media:
@@ -26,14 +26,27 @@ class Media:
         self.fmt_start = num(self.fmt.get("start_time"), 0.0)
         self.fmt_dur = num(self.fmt.get("duration"))
         self.exact = {}  # stream index -> duration measured by decoding
+        self._first = {}  # stream index -> timestamp of its first packet
 
     def slow(self):
         """True for raw formats without a time index (duration is only an estimate)."""
         return self.path.suffix.lower() in SLOW_SEEK
 
     def rel_start(self, s):
-        """Stream start relative to the start of the file (that is how ffmpeg sees it)."""
-        return num(s.get("start_time"), self.fmt_start) - self.fmt_start
+        """Stream start relative to the start of the file (that is how ffmpeg sees it).
+
+        For audio, the first packet's timestamp wins over the reported start_time when they disagree: the
+        filter re-bases the track to its first packet, so a wrong start_time would shift the new audio.
+        """
+        start = num(s.get("start_time"), self.fmt_start)
+        if s.get("codec_type") == "audio":
+            i = s.get("index")
+            if i not in self._first:
+                self._first[i] = first_pts(self.path, i)
+            real = self._first[i]
+            if real is not None and abs(real - start) > 0.05:
+                start = real
+        return start - self.fmt_start
 
     def duration(self, s):
         """Stream duration: measured value, then the stream's own, its DURATION tag, then the container's."""
