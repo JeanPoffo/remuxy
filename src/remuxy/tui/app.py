@@ -127,7 +127,7 @@ class RemuxY(App):
                                            tooltip="keeps the default flag on VOBSUB/PGS")
 
                     yield Label("Measurement", classes="sec")
-                    yield from self.opt("Ref. track", "ref_audio", "0  (target audio)", "integer")
+                    yield from self.opt("Ref. track", "ref_audio", "auto  (original language)", "integer")
                     yield from self.opt("Sync track", "sync_audio", "auto  (source audio)", "integer")
                     yield from self.opt("Points", "points", "12", "integer")
                     yield from self.opt("Window (s)", "window", "120", "number")

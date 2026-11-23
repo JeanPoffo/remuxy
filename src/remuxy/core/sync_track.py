@@ -16,6 +16,26 @@ def _lang(stream):
     return "" if lang in UNKNOWN else lang
 
 
+def pick_ref_track(src, tgt, args):
+    """Index of the TARGET audio track --auto-sync measures against, and a note explaining the choice (or None).
+
+    Releases often put foreign dubs first (e.g. Russian voice-overs before the original Japanese); measuring
+    against one of those compares different dialogue and can come out inconclusive. Without --ref-audio, the
+    first target track in a language the source also has is used, preferring one other than --audio's (the
+    original rather than the dub); with no language in common, track 0.
+    """
+    if args.ref_audio is not None:
+        return args.ref_audio, None
+    have = {_lang(s) for s in src.audios} - {""}
+    dub = _lang(src.audios[args.audio])
+    common = [i for i, t in enumerate(tgt.audios) if _lang(t) in have]
+    pick = next((i for i in common if _lang(tgt.audios[i]) != dub), common[0] if common else 0)
+    if pick == 0:
+        return 0, None
+    return pick, (f"reference: target track #{pick} ({_lang(tgt.audios[pick])}, a language the source also has); "
+                  "use --ref-audio to choose another")
+
+
 def pick_sync_track(src, tgt, args):
     """Index of the SOURCE audio track to measure with, and a note explaining the choice (or None).
 

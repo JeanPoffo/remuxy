@@ -94,7 +94,7 @@ remux SOURCE TARGET [options]
 | --- | --- | --- |
 | `-o`, `--output` | `<target>.synced.mkv` | Output file. Always **Matroska**, so use `.mkv` (another extension triggers a warning). Cannot be an input file. |
 | `--audio N` | `0` | Audio track of the **source** (0 = first). |
-| `--ref-audio N` | `0` | Audio track of the **target** used as reference by `--auto-sync`/`--verify`. |
+| `--ref-audio N` | auto | Audio track of the **target** used as reference by `--auto-sync`/`--verify`. By default, the first target track in a language the source also has, preferring one other than `--audio`'s (the original, not the dub): releases often put foreign dubs first (e.g. a Russian voice-over before the original Japanese), and measuring against those can be inconclusive. With no language in common, track `0`. |
 | `--sync-audio N` | auto | Audio track of the **source** measured by `--auto-sync`. Default: `--audio`, or a source track in the reference's language when `--audio` is in another one (see below). |
 | `--append` | off | Puts the new track **after** the originals instead of first and default. |
 | `--replace` | off | Removes the target's original audio tracks. |
