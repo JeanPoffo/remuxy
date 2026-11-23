@@ -56,7 +56,7 @@ from remuxy.core.media import Media
 from remuxy.core.mux_command import build_mux_command
 from remuxy.core.prior_model import prior_model
 from remuxy.core.process import run
-from remuxy.core.sync_track import pick_sync_track
+from remuxy.core.sync_track import pick_ref_track, pick_sync_track
 from remuxy.core.track import get_track
 from remuxy.core.verify import check_output, verify_sync
 
@@ -77,6 +77,11 @@ def main(argv=None):
         sys.exit(f"The source has {len(src.audios)} audio track(s); --audio {args.audio} does not exist.")
     if not tgt.duration(tgt.video):
         sys.exit("Could not read the duration of the target's video.")
+    ref_note = None
+    if args.auto_sync or args.verify:
+        args.ref_audio, ref_note = pick_ref_track(src, tgt, args)
+    elif args.ref_audio is None:
+        args.ref_audio = 0
     if args.auto_sync and args.ref_audio >= len(tgt.audios):
         sys.exit(f"The target has {len(tgt.audios)} audio track(s); there is no --ref-audio "
                  f"{args.ref_audio} reference for --auto-sync.")
@@ -115,6 +120,8 @@ def main(argv=None):
         print(" -", n)
 
     if args.auto_sync:
+        if ref_note:
+            print(f"[auto-sync] {ref_note}")
         sync_idx, note = pick_sync_track(src, tgt, args)
         if note:
             print(f"[auto-sync] {note}")

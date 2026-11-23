@@ -14,7 +14,9 @@ def parse_args(argv=None):
     ap.add_argument("target", help="2nd file: receives the audio (video/subtitles/original audio are kept)")
     ap.add_argument("-o", "--output", help="output file (default: <target>.synced.mkv)")
     ap.add_argument("--audio", type=int, default=0, help="audio track index in the SOURCE (0 = first)")
-    ap.add_argument("--ref-audio", type=int, default=0, help="TARGET track used as reference by --auto-sync")
+    ap.add_argument("--ref-audio", type=int,
+                    help="TARGET track used as reference by --auto-sync (default: the first target track in a "
+                         "language the source also has, preferring one other than --audio's; else 0)")
     ap.add_argument("--sync-audio", type=int,
                     help="SOURCE track measured by --auto-sync (default: --audio, or a source track in the "
                          "target reference's language when --audio is in another one)")
@@ -55,7 +57,8 @@ def parse_args(argv=None):
     args = ap.parse_args(argv)
 
     errors = []
-    if args.audio < 0 or args.ref_audio < 0 or (args.sync_audio is not None and args.sync_audio < 0):
+    if args.audio < 0 or (args.ref_audio is not None and args.ref_audio < 0) \
+            or (args.sync_audio is not None and args.sync_audio < 0):
         errors.append("--audio/--ref-audio/--sync-audio cannot be negative")
     if args.points < 3:
         errors.append("--points must be at least 3")
