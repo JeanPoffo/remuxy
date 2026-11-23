@@ -61,6 +61,8 @@ Run it as your user, **not with sudo**: that would install the commands into roo
 
 A [Textual](https://github.com/Textualize/textual) front end for `remux`, with a [Bagels](https://github.com/EnhancedJax/Bagels)-inspired palette.
 
+<p align="center"><img src="assets/tui.png" alt="remuxy TUI"></p>
+
 ```bash
 remuxy                       # empty form
 remuxy dub.ac3 movie.mkv     # source and target already filled in
@@ -224,7 +226,7 @@ Candidates the durations cannot separate (e.g. 23.976 vs 24 fps, 0.1% apart) pri
 remuxy/
 ├── install.sh              installer (apt/pacman + pipx)
 ├── pyproject.toml          package metadata and commands
-├── assets/                 logo
+├── assets/                 logo, TUI screenshot
 └── src/remuxy/
     ├── remux.py            `remux` command: orchestrates the steps below
     ├── remuxy.py           `remuxy` command: starts the TUI
