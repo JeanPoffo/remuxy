@@ -43,7 +43,10 @@ def build_filter(a, b, a_s, ch, out_end, codec, sample_rate=None, src_sr=0, stre
         else:
             f += atempo_chain(1.0 / b)  # keeps the pitch (WSOLA); each instant wobbles ~±15 ms
     if delay > 0.0005:
-        f.append("adelay=" + "|".join([f"{delay * 1000:.1f}"] * ch))
+        # adelay keeps the timestamps of what came before it (atempo, aresample), so the encoder may see a jump
+        # over the delay instead of the silence frames: the start of the track then has NO audio data and TVs
+        # stall. Renumbering the timestamps by sample count makes the inserted silence real.
+        f += ["adelay=" + "|".join([f"{delay * 1000:.1f}"] * ch), "asetpts=N/SR/TB"]
     elif delay < -0.0005:
         f += [f"atrim=start={-delay:.6f}", "asetpts=PTS-STARTPTS"]
     f += [f"apad=whole_dur={out_end:.3f}", f"atrim=end={out_end:.3f}"]
