@@ -18,6 +18,23 @@ def probe(path):
         sys.exit(f"ffprobe returned unreadable output for {path}")
 
 
+def first_pts(path, index, packets=20):
+    """Earliest timestamp (s) among the first packets of stream `index`, or None if none could be read.
+
+    A stream's `start_time` is not always where its audio really begins: a Matroska track whose first packet
+    sits at 16.7 s can still report start_time 0. Reading the packets themselves gives the real start.
+    """
+    r = run(["ffprobe", "-v", "error"] + input_options(path)
+            + ["-select_streams", str(index), "-read_intervals", f"%+#{packets}",
+               "-show_entries", "packet=pts_time,dts_time", "-of", "csv=p=0", str(path)],
+            capture_output=True, text=True)
+    if r.returncode:
+        return None
+    ts = [num(v) for line in r.stdout.splitlines() for v in line.split(",")[:1]]
+    ts = [t for t in ts if t is not None]
+    return min(ts) if ts else None
+
+
 def num(x, default=None):
     """float(x), or `default` when x is missing or not a number."""
     try:
