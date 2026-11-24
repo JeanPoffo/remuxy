@@ -28,6 +28,9 @@ def parse_args(argv=None):
                     help="how to change the speed: atempo keeps the pitch; resample changes the pitch too "
                          "(like a real PAL speedup), is exact and has no artifacts")
     ap.add_argument("--auto-sync", action="store_true", help="measures the real delay by correlation (needs numpy)")
+    ap.add_argument("--segments", action="store_true",
+                    help="for releases with different cuts: maps the delay along the whole movie and splices the new "
+                         "audio per stretch, cutting at its quietest points (implies --auto-sync; re-encodes)")
     ap.add_argument("--verify", action="store_true", help="measures the final result against the target's original audio")
     ap.add_argument("--points", type=int, default=12, help="number of windows measured by --auto-sync/--verify (min. 3)")
     ap.add_argument("--window", type=float, default=120, help="maximum length (s) of each compared window")
@@ -74,4 +77,6 @@ def parse_args(argv=None):
         errors.append("invalid --bitrate (e.g. 192k, 640k)")
     if errors:
         ap.error("; ".join(errors))
+    if args.segments:
+        args.auto_sync = True
     return args
