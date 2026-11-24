@@ -17,6 +17,8 @@ What it checks/fixes:
      detects drift and warns about different cuts. When the source also carries the target reference's
      language (a dubbed release that keeps the original track), that track is measured instead: same file,
      same timeline, much stronger match (--sync-audio forces the choice).
+     (--segments) for releases with different cuts: maps the delay along the whole movie with the new track,
+     and splices it per stretch (silence inserted / audio dropped at the quietest point of each change).
   4. (--verify) after writing the file, measures the new audio against the target's original audio.
      Exits with code 2 if the error exceeds 40 ms.
 
@@ -55,6 +57,7 @@ from remuxy.core.interleave import check_interleave
 from remuxy.core.media import Media
 from remuxy.core.mux_command import build_mux_command
 from remuxy.core.prior_model import prior_model
+from remuxy.core.segments import segment_map, splice_steps
 from remuxy.core.process import run
 from remuxy.core.sync_track import pick_ref_track, pick_sync_track
 from remuxy.core.track import get_track
@@ -116,9 +119,11 @@ def main(argv=None):
           f"{sa.get('channel_layout') or ''} start {a_s:+.3f}s dur {f'{dur_sa:.3f}s' if dur_sa else '?'}")
 
     a, b, notes, alts = prior_model(src, tgt, args)
+    b_prior = b
     for n in notes:
         print(" -", n)
 
+    bounds = []
     if args.auto_sync:
         if ref_note:
             print(f"[auto-sync] {ref_note}")
@@ -130,6 +135,15 @@ def main(argv=None):
             if tr.no_center:
                 print(f"  {name}: comparing only the side channels (the center, with the dialogue, is left out)")
         r = auto_sync(S, T, a, b, alts, args)
+        if r and args.segments:
+            # mapped with the new track itself: it is what has to line up, and a dub may have its own small edits
+            N = get_track(src, args.audio) if sync_idx != args.audio else S
+            m = segment_map(src, args.audio, N, T, r[0], r[1], b_prior, args)
+            if m is None and N is not S:
+                print(f"  trying again with source track #{sync_idx}")
+                m = segment_map(src, args.audio, S, T, r[0], r[1], b_prior, args)
+            if m:
+                r, bounds = (m[0], m[2]), m[1]
         if r:
             # the measurement is absolute; the manual fine adjustment goes on top of it
             a, b = r[0] + args.offset, r[1]
@@ -139,10 +153,11 @@ def main(argv=None):
             print("  -> keeping the model computed from the metadata.")
 
     out_end = tgt.rel_start(tgt.video) + tgt.duration(tgt.video)
-    codec, sr, src_sr, ch_out = resolve_codec(args, sa, b, ch, delay=a + b * a_s)
+    steps = splice_steps(a - args.offset, bounds, a_s, b) if bounds else None  # the offset shifts every stretch
+    codec, sr, src_sr, ch_out = resolve_codec(args, sa, b, ch, delay=a + b * a_s, spliced=bool(steps))
     copy = codec == "copy"
     flt, delay = build_filter(a, b, a_s, ch, out_end, codec, sample_rate=sr or None, src_sr=src_sr,
-                              stretch=args.stretch)
+                              stretch=args.stretch, steps=steps)
     if abs(b - 1) > 1e-9 and not copy:
         semis = 12 * math.log2(1 / b)
         if args.stretch == "resample" and src_sr:
@@ -151,7 +166,8 @@ def main(argv=None):
             print(" - speed adjustment with atempo: the pitch is kept (--stretch resample = exact, but changes the pitch "
                   f"{semis:+.2f} semitone)")
     print(f"\n== Result of the calculation ==\n  initial delay of the new audio: {delay:+.3f}s | "
-          f"speed: {1 / b:.6f}x | ends at {out_end:.3f}s")
+          f"speed: {1 / b:.6f}x | ends at {out_end:.3f}s"
+          + (f" | {len(steps)} splice(s) (--segments)" if steps else ""))
     if copy:
         # copy without re-encoding: the shift is applied to the packet timestamps (exact);
         # whatever falls before the start is dropped in whole packets (up to ~32 ms less audio at the start)

@@ -93,6 +93,9 @@ class RemuxY(App):
                         with Vertical():
                             yield Checkbox("auto-sync", True, id="auto_sync", tooltip="measures the real delay (numpy)")
                             yield Checkbox("verify", True, id="verify", tooltip="checks the result at the end")
+                            yield Checkbox("segments", id="segments",
+                                           tooltip="different cuts: maps the delay along the movie and splices the "
+                                                   "new audio per stretch (re-encodes)")
                         with Vertical():
                             yield Checkbox("no-tempo", id="no_tempo", tooltip="no speed correction from the fps")
                             yield Checkbox("overwrite", True, id="overwrite",
@@ -262,7 +265,8 @@ class RemuxY(App):
         args = [sys.executable, "-u", "-m", CLI_MODULE, str(Path(src).expanduser()), str(Path(dst).expanduser())]
         if out:
             args += ["-o", str(Path(out).expanduser())]
-        for wid, flag in (("auto_sync", "--auto-sync"), ("verify", "--verify"), ("no_tempo", "--no-tempo"),
+        for wid, flag in (("auto_sync", "--auto-sync"), ("verify", "--verify"), ("segments", "--segments"),
+                          ("no_tempo", "--no-tempo"),
                           ("overwrite", "--overwrite"), ("append", "--append"), ("default", "--default"),
                           ("replace", "--replace"), ("keep_sub_default", "--keep-sub-default")):
             if chk(wid) and not (dry and wid == "verify"):
@@ -419,6 +423,8 @@ class RemuxY(App):
             self.total = float(m[1])
         if "decoding audio" in line or "measuring the exact duration" in line:
             self.phase("decoding the audio to measure it…", LILAC)
+        elif line.startswith("[segments]"):
+            self.phase("segments: mapping the delay along the movie…", LILAC)
         elif line.startswith("[auto-sync]"):
             self.phase("auto-sync: measuring the delay…", LILAC)
         elif "Post-mux verification" in line:

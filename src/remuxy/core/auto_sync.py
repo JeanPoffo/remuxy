@@ -53,7 +53,8 @@ def auto_sync(S, T, a0, b0, alts, args):
                 t0, t1 = c2[2][0][0], c2[2][-1][0] + win
                 print(f"  WARNING: {len(c2[2])} windows (between {t0:.0f}s and {t1:.0f}s of the source) agree on ANOTHER "
                       f"delay ({c2[0]:+.3f}s). The movies have different cuts: that stretch will be "
-                      f"{abs(c2[0] - a):.2f}s out of sync. A single adjustment cannot fix both stretches.")
+                      f"{abs(c2[0] - a):.2f}s out of sync. A single adjustment cannot fix both stretches"
+                      f"{'' if args.segments else '; use --segments to splice the new audio per stretch'}.")
             else:
                 print(f"  ({left_out} windows without a reliable peak were ignored; normal when the dialogue differs)")
         return a, b

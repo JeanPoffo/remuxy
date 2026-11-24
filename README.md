@@ -69,7 +69,7 @@ remuxy dub.ac3 movie.mkv     # source and target already filled in
 ```
 
 - **Files:** source, target and output. `…` (or `^f` / `^g` / `^o`) opens a folder browser that only lists media files. Each file gets a one-line summary (duration, video, audio tracks with language, subtitles); on the source, the audio track that will be copied is highlighted and the others are dimmed.
-- **Options:** every `remux` option in three groups (Sync, New track, Measurement). Empty field = `remux` default. `auto-sync`, `verify` and `overwrite` start checked.
+- **Options:** every `remux` option in three groups (Sync, New track, Measurement). Empty field = `remux` default. `auto-sync`, `verify` and `overwrite` start checked; `segments` is off.
 - **Start / Dry-run / Cancel:** cancelling stops ffmpeg and deletes the partial file.
 - **Progress:** current phase (analysis, auto-sync, remux, verification) and, while muxing, percentage, processed time, ffmpeg speed and time left.
 - **Log:** full remux and ffmpeg output; warnings orange, errors red, success green, ffmpeg metadata dimmed. If `--verify` reports more than 40 ms the result shows in orange.
@@ -117,6 +117,7 @@ remux SOURCE TARGET [options]
 | Option | Default | Description |
 | --- | --- | --- |
 | `--auto-sync` | off | Measures the real alignment by audio correlation (delay, speed, drift, cuts). Needs `numpy`; decodes both tracks once (a 1-hour movie took 75 s with `--auto-sync --verify`). |
+| `--segments` | off | For releases with **different cuts**: maps the delay along the whole movie and splices the new audio per stretch (see below). Implies `--auto-sync`; always re-encodes (same codec family for AAC/AC3/E-AC3). |
 | `--verify` | off | Measures the residual error of the new audio in the output. Needs `numpy`; not available with `--replace`. Exit code 2 above 40 ms. |
 | `--points N` | `12` | Number of measured windows (min. 3). |
 | `--window S` | `120` | Maximum window length (s); shrinks by itself on short movies. |
@@ -144,6 +145,7 @@ remux dubbed.mkv original.mkv --lang por --title "Português"         # same ver
 remux movie_23976.mkv movie_25.mkv --dry-run                          # 23.976 -> 25 fps: check the analysis,
 remux movie_23976.mkv movie_25.mkv                                    #   then run (speed fix is automatic)
 remux source.mkv target.mkv --auto-sync --verify                      # different cuts/intros (any length)
+remux source.mkv target.mkv --segments --verify                       # small edits along the movie
 remux source.mkv target.mkv --offset -1.5                             # audio 1.5 s late in the result -> advance
 remux source.mkv target.mkv --audio 2 --codec ac3 --bitrate 640k --replace   # 3rd track, AC3 5.1, replace
 remux dub_pt.ac3 movie.mkv --lang por --title "Português 5.1" --codec copy --auto-sync --verify  # audio-only
@@ -186,6 +188,12 @@ Candidates the durations cannot separate (e.g. 23.976 vs 24 fps, 0.1% apart) pri
 3. **Vote:** only what a group of windows agrees on counts (same delay within 60 ms, or the same line if there is drift): at least 3 windows and 40% of them, spanning windows that share no audio. False peaks land at random and do not agree.
 4. **Result:** constant delay → shift only; **drift** → speed factor too, windows redone with it compensated; **different cuts** → if the left-out windows agree on *another* delay, it reports which stretch will be off and by how much (one adjustment cannot fix both); **inconclusive** (unrelated audio) → keeps the metadata model and warns.
 
+**Different cuts (`--segments`).** Two releases may differ by small edits along the movie (a few frames cut, a shot extended, a logo), so one delay only fits part of it. `--segments` maps the delay with the **new track itself** (it is what must line up, and a dub can have its own small edits; if it has too few reliable peaks, the `--sync-audio` track is used):
+1. **Scan:** 20 s windows every 10 s over the whole movie, each with its own delay.
+2. **Stretches:** consecutive windows that agree (within 45 ms) form a stretch; a new one needs 3 windows in a row (6 for a change under 150 ms), so an isolated false peak never opens one. Neighbours less than 80 ms (~2 frames) apart are merged: below that, a dub measured against the original wanders by itself, and cutting would only add splices. If the stretches share a leftover slope, the speed is refitted (the metadata speed wins when the difference is under 0.1 s over the movie).
+3. **Changes:** each change is located with 6 s windows every 1 s, and the cut goes at the **quietest** 0.3 s of the new audio within ±3 s of it (silences hide a cut).
+4. **Splice:** where the delay grows, silence is inserted; where it shrinks, that much of the new audio is dropped. The log lists every stretch and cut; check the result with `--verify`.
+
 **3. Verification (`--verify`).** Measures the new audio against the target's original audio in the output, with the same windows and vote, and prints median and max error. Up to ~40 ms (1 frame at 25 fps) is imperceptible; above it prints `ALERT` and **exits with code 2** (useful for batches). With `--offset` the deviation is treated as intentional.
 
 **4. Plex/TV compatibility (always)** <a name="plex"></a>
@@ -213,7 +221,7 @@ Candidates the durations cannot separate (e.g. 23.976 vs 24 fps, 0.1% apart) pri
 - **Constant ~15–20 ms in `--verify`:** codec delay (a raw `.aac` does not report its ~21 ms encoder delay) or `atempo` wobble. Imperceptible; `--stretch resample` removes the `atempo` part.
 - **`AMBIGUOUS: ... 23.976 vs 24 fps`:** run `--auto-sync --verify` (it tests both); if still wrong, use `--speed`.
 - **`WARNING: ... different cuts`** (same fps, different durations), or an audio-only source much shorter/longer than the movie (e.g. no credits; it is not stretched): use `--auto-sync` or `--offset`.
-- **`WARNING: N windows ... agree on ANOTHER delay`:** the movies have different cuts (an extra scene, say). One adjustment cannot fix it: find another version, or use `--offset` to sync the part that matters most.
+- **`WARNING: N windows ... agree on ANOTHER delay`:** the movies have different cuts (an extra scene, say). One adjustment cannot fix it: run again with `--segments`, which splices the new audio per stretch.
 - **`inconclusive measurement`:** the tracks may share nothing (another score/mix) or the reference is wrong: check `--ref-audio` (a commentary track will not do) and try `--points 24`.
 - **`N windows without a reliable peak were ignored`** on a dub is normal: dialogue-only scenes have nothing in common.
 - **`PROBLEM: TVs may stall at the start`** (interleave check): the new audio is more than 2 s away from the video in the file. Remux again; if it persists, open an issue.
@@ -241,6 +249,7 @@ remuxy/
     │   ├── windows.py        window planning and measurement
     │   ├── consensus.py      window voting
     │   ├── auto_sync.py      --auto-sync
+    │   ├── segments.py       --segments: delay map along the movie and cut points
     │   ├── codec.py          output codec / sample rate choice
     │   ├── audio_filter.py   ffmpeg audio filter for the model
     │   ├── mux_command.py    final ffmpeg command
